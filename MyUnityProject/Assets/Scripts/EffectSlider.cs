@@ -12,21 +12,26 @@ public class EffectSlider : MonoBehaviour
         _slider.value = 0;
     }
 
-    void Update()
+    private void Update()
     {
-        if(Input.GetKey(KeyCode.Z))
+        ///*** EFFECT SLIDER INPUTS *** ///
+        if (Input.GetKey(KeyCode.Z))
         {
-            _slider.value -= 0.1f;
+            AddToSlider(-5);
         }
-        if(Input.GetKey(KeyCode.X))
+        if (Input.GetKey(KeyCode.X))
         {
-            _slider.value += 0.1f;
+            AddToSlider(+5);
         }
+    }
 
+    public void AddToSlider(int v)
+    {
+        _slider.value += v;
     }
 
     public float GetEffectValue()
     {
-        return _slider.value;
+        return _slider.value / _slider.maxValue;
     }
 }

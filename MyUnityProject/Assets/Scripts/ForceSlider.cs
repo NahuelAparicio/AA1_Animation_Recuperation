@@ -7,16 +7,13 @@ public class ForceSlider : MonoBehaviour
 {
 
     [SerializeField] private Slider _slider;
-    private bool sign = true;
+    public bool sign { get; private set; }
     public bool canShoot = false;
-    public float strenghtForce = 0;
-
-    IK_Scorpion _scorp;
 
     private void Awake()
     {
+        sign = true;
         _slider = GetComponent<Slider>();
-        _scorp = FindObjectOfType<IK_Scorpion>();
     }
 
     void Start()
@@ -24,39 +21,39 @@ public class ForceSlider : MonoBehaviour
         _slider.value = 0;
     }
 
-    void Update()
+    private void Update()
     {
         if (Input.GetKey(KeyCode.Space))
         {
             if (sign)
             {
-                AddToSlider(+0.0005f);
+                AddToSlider(+5);
             }
             else
             {
-                AddToSlider(-0.0005f);
-            }
-            if (_slider.value == 0.15f)
-            {
-                sign = true;
-            }
-            if (_slider.value == 0.25f)
-            {
-                sign = false;
+                AddToSlider(-5);
             }
         }
-
-        if (Input.GetKeyUp(KeyCode.Space))
-        {
-            _scorp.SetPointTarget();
-            canShoot = true;
-            strenghtForce = _slider.value;
-        }
-
     }
 
-    void AddToSlider(float val)
+
+    public void AddToSlider(float v)
     {
-        _slider.value += val;
+        _slider.value += v;
+
+        if (_slider.value <= _slider.minValue)
+        {
+            sign = true;
+        }
+
+        if (_slider.value >= _slider.maxValue)
+        {
+            sign = false;
+        }
+    }
+
+    public float GetForceValue()
+    {
+        return _slider.value / _slider.maxValue;
     }
 }
