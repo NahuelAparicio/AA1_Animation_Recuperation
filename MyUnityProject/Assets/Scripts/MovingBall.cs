@@ -1,127 +1,263 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using TMPro;
+using System.Collections.Specialized;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Experimental.GlobalIllumination;
 
 public class MovingBall : MonoBehaviour
 {
-    [SerializeField]
-    MovingTarget _target;
-    IK_tentacles _myOctopus;
-    IK_Scorpion _myScorpion;
+    public IK_tentacles _myOctopus { get; private set; }
+    public IK_Scorpion _myScorpion { get; private set; }
+    public MovingTarget _target { get; private set; }
 
+    public bool isShoot = false;
+    private Vector3 _startPosition, _startShootPos, _startVelocity;
 
-    [Range(-1.0f, 1.0f)]
-    [SerializeField]
-    private float _movementSpeed = 5f;
-    private Rigidbody _rb;
-    private MagnusPhysics _magPhysics;
+    private float _shootTime = 0f;
+    private float _shootTimeDuration;
 
-    public float radius;
-    public float forceToBeAplied;
-    public ForceSlider _strengthSlider;
-    public Slider _effectSlider;
-    public Text _rotationText;
+    //Magnus 
+    public float _radius { get; private set; }
+    readonly float _mass = 1f;
+    readonly float _maxAngularVelocityMagnitude = 10f;
 
-    public Trajectory _trajectory;
-    private void Awake()
+    private Vector3 _linearVelocity, _angularVelocity, _magnusForce, _acceleration;
+    private Vector3 _rotationAxis;
+
+    bool _isRotatingClockwise;
+    [SerializeField] private Transform _tailTarget;
+
+    // Arrows + Trajectory
+    private int _numArrows = 20;
+    private int _numPoints = 40;
+    private bool _enabledArrows = true;
+
+    public GameObject _greyArrowPrefab, _bluePointsPrefab;
+    public GameObject _arrowContainer, _ballForceArrowsContainer;
+
+    private Transform[] _greyArrows, _bluePoints;
+
+    [SerializeField] private Transform _velocityArrow, _gravityArrow, _magnusArrow, _greyMagnusArrow;
+
+    public EffectSlider _effect { get; private set; }
+    public ForceSlider _sliderForce { get; private set; }
+
+    public Text angularText;
+
+    private Utils _utils = new Utils();
+
+    void Awake()
     {
-        _magPhysics = GetComponent<MagnusPhysics>();
-        radius = GetComponent<SphereCollider>().radius;
-        _rb = GetComponent<Rigidbody>();
+        _radius = gameObject.transform.GetChild(0).GetComponent<SphereCollider>().radius;
         _myOctopus = FindObjectOfType<IK_tentacles>();
-        _target = GameObject.Find("BlueTarget").GetComponent<MovingTarget>();
         _myScorpion = FindObjectOfType<IK_Scorpion>();
+        _target = GameObject.Find("BlueTarget").GetComponent<MovingTarget>();
+        _effect = FindObjectOfType<EffectSlider>();
+        _sliderForce = FindObjectOfType<ForceSlider>();
+        _greyArrows = new Transform[_numArrows];
+
+        for (int i = 0; i < _numArrows; i++)
+        {
+            _greyArrows[i] = Instantiate(_greyArrowPrefab, _arrowContainer.transform).transform;
+        }
+
+        _bluePoints = new Transform[_numPoints];
+
+        for (int i = 0; i < _numPoints; i++)
+        {
+            _bluePoints[i] = Instantiate(_bluePointsPrefab, _arrowContainer.transform).transform;
+        }
+    }
+
+    void Start()
+    {
+        _startPosition = transform.position;
+        _shootTime = 0f;
+        isShoot = false;
+        _enabledArrows = true;
+        ResetArrows();
     }
 
     void Update()
     {
-        forceToBeAplied = _strengthSlider.strenghtForce;
-
-        transform.rotation = Quaternion.identity;
-
-        if (Input.GetKeyDown(KeyCode.L))
+        if (Input.GetKeyDown(KeyCode.I))
         {
-            Respawn();
+            _enabledArrows = !_enabledArrows;
+            _arrowContainer.SetActive(_enabledArrows);
+            _ballForceArrowsContainer.SetActive(_enabledArrows);
         }
 
-        if(_strengthSlider.canShoot && Input.GetKeyUp(KeyCode.Space))
+        if (isShoot)
         {
-            _myScorpion.ShootTail();
-        }
+            transform.position = _utils.GetEulerPos(transform.position, _linearVelocity, Time.deltaTime);
+            _linearVelocity = _utils.GetEulerVelocity(_linearVelocity, _acceleration, Time.deltaTime);
 
+            _acceleration = Acceleration(_angularVelocity, _linearVelocity);
+            _shootTime += Time.deltaTime;
+            RotateBall();
 
-        if (_effectSlider.value != 0)
-        {
-            if(Input.GetKeyDown(KeyCode.I))
+            if (_shootTime <= _shootTimeDuration)
             {
-                float pV = new Vector3(GetDirectionNormalized().x * forceToBeAplied, 0, GetDirectionNormalized().z * forceToBeAplied).magnitude;
-                float fM = (_magPhysics.Drag * _effectSlider.value * _magPhysics.CrossSection * Mathf.Pow(pV, 2f)) / 2;
-                _trajectory.Actived = true; //forceM * Vector3.left
-                _trajectory.SimulatePath(gameObject, GetDirectionNormalized() * forceToBeAplied, _rb.mass, _magPhysics.Drag, fM);
-
+                SetPointsTrajectory();
             }
-
-            //MAGNUS FORCE APLIED
-            _rotationText.text = GetRotation() + "degree / sec";
-            float planeVel = new Vector3(_magPhysics.RigidBody.velocity.x, 0, _magPhysics.RigidBody.velocity.z).magnitude;
-            float forceM = (_magPhysics.Drag * _effectSlider.value * _magPhysics.CrossSection * Mathf.Pow(planeVel, 2f)) / 2;
-            _magPhysics.RigidBody.AddForce(Vector3.left * forceM);
+            if (_enabledArrows)
+            {
+                BallArrows();
+            }
         }
         else
-        { // No magnus effect show
-            _trajectory.Actived = false;
-            Debug.DrawLine(transform.position, _target.GetPosition(), Color.gray);
+        {
+            transform.rotation = Quaternion.identity;
+            _acceleration = Physics.gravity;
+
+            StartVelocity();
+
+            _angularVelocity = AngularVelocity();
+            RotAxis();
+
+            _linearVelocity = _startVelocity;
+            SetPointsTrajectory();
+
+            if (_enabledArrows)
+            {
+                SetGreyArrowTrajectory();
+                SetPointsTrajectory();
+
+                BallArrows();
+
+                SetMagnusRotation(_greyMagnusArrow);
+            }
         }
-    }
-    float GetRotation()
-    {
-        return (_rb.velocity.magnitude / radius) / (360 / 2 * Mathf.PI);
+
     }
 
-    void ShootAction()
-    {
-        _rb.angularVelocity = Vector3.Cross(transform.position, GetDir()) * GetDir().magnitude * Mathf.Rad2Deg;
-        _rb.AddForce(GetDirectionNormalized() * forceToBeAplied, ForceMode.Impulse);
-        _myOctopus.NotifyShoot();
-        _strengthSlider.canShoot = false;
-    }
-
-    //DIRECTION TO SHOOT
-    Vector3 GetDirectionNormalized()
+    private Vector3 GetDirectionNormalized()
     {
         return (_target.GetPosition() - transform.position).normalized;
     }
 
-    Vector3 GetDir()
+    //Calculate Arrows of the ball
+    private void BallArrows()
     {
-        return _target.GetPosition() - transform.position;
+        _velocityArrow.rotation = Quaternion.LookRotation(_linearVelocity.normalized, Vector3.up);
 
-    }
+        _gravityArrow.rotation = Quaternion.LookRotation(Physics.gravity.normalized, Vector3.up);
 
-    //private void CalculateMagnus()
-    //{
-    //    var direction = Vector3.Cross(_rb.angularVelocity, _rb.velocity);
-    //    var magnitude = 4 / 3f * Mathf.PI * airDensity * Mathf.Pow(radius, 3);
-    //    _rb.AddForce(magnitude * direction, ForceMode.Impulse);
-    //}
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (_strengthSlider.canShoot)
-        {
-            ShootAction();
-        }
+        SetMagnusRotation(_magnusArrow);
     }
 
     public void Respawn()
     {
-        _rb.angularVelocity = Vector3.zero;
-        _rb.velocity = Vector3.zero;
-        transform.position = new Vector3(-125, 22, -39);
-        _myScorpion.Respawn();
-        _myScorpion.ResetPointTarget();
+        transform.position = _startPosition;
+        isShoot = false;
+        _shootTime = 0f;
+        ResetArrows();
+
+        angularText.text = "rotation: 0";
     }
+
+    private void ResetArrows()
+    {
+        _arrowContainer.SetActive(_enabledArrows);
+        _ballForceArrowsContainer.SetActive(_enabledArrows);
+    }
+
+    public void StartVelocity()
+    {
+        _shootTimeDuration = Mathf.Lerp(2.5f, 0.5f, _sliderForce.GetForceValue());
+        _startShootPos = transform.position;
+
+        //Xf = pos + Vo*t + 0.5f * gravity * timePow(2)
+        _startVelocity = _target.GetPosition() - _startShootPos - (0.5f * Physics.gravity * Mathf.Pow(_shootTimeDuration, 2));
+        _startVelocity /= _shootTimeDuration;
+    }
+
+    public Vector3 Acceleration(Vector3 angular, Vector3 linear)
+    {
+        _magnusForce = _utils.MagnusForce(angular, linear);
+        return (Physics.gravity + _magnusForce) / _mass;
+    }
+
+    private Vector3 AngularVelocity()
+    {
+        Vector3 twistTmp = Vector3.Cross((_tailTarget.position - transform.position).normalized * _radius, _startVelocity);
+        Vector3 angularVelocity = twistTmp * Mathf.Lerp(0f, _maxAngularVelocityMagnitude, _sliderForce.GetForceValue());
+        return angularVelocity;
+    }
+
+    private void RotAxis()
+    {
+        Vector3 ballHitToCenterDir = _myScorpion.HitDirection.normalized;
+
+        float dot = Vector3.Dot(GetDirectionNormalized(), ballHitToCenterDir);
+        _isRotatingClockwise = Vector3.Dot(-ballHitToCenterDir, transform.right) >= 0;
+
+        if (dot > 0.99f)
+        {
+            _rotationAxis = Vector3.zero;
+        }
+        else
+        {
+            _rotationAxis = Vector3.Cross(GetDirectionNormalized(), ballHitToCenterDir);
+        }
+    }
+
+    //Ball rotation + showing text 
+    private void RotateBall()
+    {
+        float angleRot = _angularVelocity.magnitude * Mathf.Rad2Deg;
+
+        transform.Rotate(_angularVelocity.normalized, angleRot * Time.deltaTime);
+
+        if (!_isRotatingClockwise) angleRot *= -1;
+
+        angularText.text = "rotation: " + angleRot;
+    }
+
+    public void SetTailTargetPos(Vector3 localPos)
+    {
+        _tailTarget.localPosition = localPos;
+    }
+
+    private void SetGreyArrowTrajectory()
+    {
+        float timeStep = _shootTimeDuration / _numArrows;
+        float accumulatedTime = 0;
+        Vector3 futurePosition = _utils.GetPos(_startShootPos, _startVelocity, Physics.gravity, accumulatedTime);
+
+        foreach (var arrow in _greyArrows)
+        {
+            arrow.position = futurePosition;
+            futurePosition = _utils.GetPos(_startShootPos, _startVelocity, Physics.gravity, accumulatedTime + timeStep);
+            arrow.rotation = Quaternion.LookRotation((futurePosition - arrow.position).normalized, Vector3.up);
+            accumulatedTime += timeStep;
+        }
+    }
+
+    private void SetPointsTrajectory()
+    {
+        float timeStep = _shootTimeDuration / _numPoints;
+        Vector3 position = _startPosition;
+        Vector3 velocity = _startVelocity;
+        Vector3 acceleration = Acceleration(_angularVelocity, velocity);
+
+
+        for (int i = 0; i < _numPoints; ++i)
+        {
+            _bluePoints[i].position = position;
+
+            position = _utils.GetEulerPos(position, velocity, timeStep);
+            velocity = _utils.GetEulerVelocity(velocity, acceleration, timeStep);
+            acceleration = Acceleration(_angularVelocity, velocity);
+        }
+    }
+
+    private void SetMagnusRotation(Transform trans)
+    {
+        if (_magnusForce.sqrMagnitude > 0.01f)
+        {
+            trans.rotation = Quaternion.LookRotation(_magnusForce.normalized, Vector3.up);
+        }
+    }
+
 }
