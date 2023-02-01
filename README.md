@@ -3,15 +3,16 @@
 # Nahuel Aparicio // nahuel.aparicio@enti.cat
 # David Soriano // david.soriano@enti.cat
 
-Move target (where you aim) -> WASD
-Shoot -> hold space on key up -> near ball = shoot
-Predict trayectory -> press I
-To Restart/Respawn -> press P
+Move target (donde apuntas) -> WASD
+Shoot -> presiona espacio al soltar -> shoot
+Valor de efecto -> presiona Z o X
+Predecir Trayectoria -> presiona I
+Para Restart/Respawn -> presiona P
 
 Exercice 1
 
 1.1 -> script "IK_tentacles" function NotifyShoot()
-1.2 -> WASD moves the blue targer (where you aim)
+1.2 -> WASD mueve el target (donde apuntas)
 1.3 -> script "ForceSlider" y "EffectSlider"
 1.4 -> script "IK_scorpion" Respawn()
 1.5 -> Usamos Uniformly Accelerated Rectilinear Motion (Xf = Xo + (Vo*t) + (1/2*a*t^2))
@@ -26,7 +27,6 @@ nos imprimira el texto por pantalla.
 2.3 -> script "MovingBall" Update -> input I. Para actualizar el transform de las flechas lo hacemos en el Update 
 (si no estamos chutando), en el if(_enabledArrows).
 2.4 -> Para actualizar las flechas de velocidad y fuerzas lo hacemos en "BallArrows()" llamado en el Update()
-
 2.5 -> Para calcular la velocidad de rotacion lo haremos mediante: AngularVelocity = Torque * Lerp(0, fuerdaDeEffectoMaximo, effectoActual);
 donde Torque lo conseguimos mediante un Cross de punto de impacto y la velocidad linear -> Torque = Cross(puntoImpacto, linearVelocity)
 2.6 -> MagnusForce = Cross(velocidadAngular, velocidadLinearInstantanea); Hemos elegido esta formula para calcular el magnus porque es la más

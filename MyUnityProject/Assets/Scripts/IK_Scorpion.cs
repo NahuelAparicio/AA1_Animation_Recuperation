@@ -165,6 +165,7 @@ public class IK_Scorpion : MonoBehaviour
         NotifyStartWalk();
     }
 
+    //Set target position by effect value
     private void TargetPos()
     {
         float targetX = _ball._target.GetPosition().x;
@@ -210,9 +211,13 @@ public class IK_Scorpion : MonoBehaviour
             bodyLegs += futureLegBases[i].position;
 
             if (i % 2 == 0)
+            {
                 rightLegs += futureLegBases[i].position;
+            }
             else
+            {
                 leftLegs += futureLegBases[i].position;
+            }
         }
 
 
@@ -232,6 +237,7 @@ public class IK_Scorpion : MonoBehaviour
         }
     }
 
+    //Apply desired rotation to body, calculated in UpdateScorpion
     private void RotateBody()
     {
         if (_currentForward.sqrMagnitude > 0.0001f)

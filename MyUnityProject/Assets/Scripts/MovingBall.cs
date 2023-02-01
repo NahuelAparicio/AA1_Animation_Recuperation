@@ -136,6 +136,7 @@ public class MovingBall : MonoBehaviour
         return (_target.GetPosition() - transform.position).normalized;
     }
 
+    //Calculate Arrows of the ball
     private void BallArrows()
     {
         _velocityArrow.rotation = Quaternion.LookRotation(_linearVelocity.normalized, Vector3.up);
@@ -201,6 +202,7 @@ public class MovingBall : MonoBehaviour
         }
     }
 
+    //Ball rotation + showing text 
     private void RotateBall()
     {
         float angleRot = _angularVelocity.magnitude * Mathf.Rad2Deg;
@@ -230,15 +232,6 @@ public class MovingBall : MonoBehaviour
             arrow.rotation = Quaternion.LookRotation((futurePosition - arrow.position).normalized, Vector3.up);
             accumulatedTime += timeStep;
         }
-
-        //for (int i = 0; i < _greyArrows.Length; i++)
-        //{
-        //    _greyArrows[i].position = futurePosition;
-        //    futurePosition = _utils.GetPos(_startShootPos, _startVelocity, Physics.gravity, accumulatedTime + timeStep);
-        //    _greyArrows[i].rotation = Quaternion.LookRotation((futurePosition - _greyArrows[i].position).normalized, Vector3.up);
-
-        //    accumulatedTime += timeStep;
-        //}
     }
 
     private void SetPointsTrajectory()
