@@ -7,7 +7,8 @@ Move target (donde apuntas) -> WASD
 Shoot -> presiona espacio al soltar -> shoot
 Valor de efecto -> presiona Z o X
 Predecir Trayectoria -> presiona I
-Para Restart/Respawn -> presiona P
+Para Restart/Respawn -> presiona P, para Start again PRESS SPACE
+
 
 Exercice 1
 
